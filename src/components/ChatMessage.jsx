@@ -2,11 +2,12 @@ import clsx from 'clsx'
 import { TrendingUp, Database, Cpu, AlertCircle } from 'lucide-react'
 
 const SOURCE_CONFIG = {
-  faq:    { label: 'FAQ database',  bg: 'bg-emerald-50',  text: 'text-emerald-700',  Icon: Database },
-  groq:   { label: 'Groq · Free',  bg: 'bg-amber-50',    text: 'text-amber-700',    Icon: Cpu },
-  gemini: { label: 'Gemini · Free', bg: 'bg-blue-50',    text: 'text-blue-700',     Icon: Cpu },
-  ai:     { label: 'AI answer',     bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
-  error:  { label: 'Error',         bg: 'bg-red-50',      text: 'text-red-600',      Icon: AlertCircle },
+  faq:    { label: 'FAQ database',   bg: 'bg-emerald-50',  text: 'text-emerald-700',  Icon: Database },
+  best:   { label: 'NISM + AI',      bg: 'bg-violet-50',   text: 'text-violet-700',   Icon: Database },
+  groq:   { label: 'Groq · Free',    bg: 'bg-amber-50',    text: 'text-amber-700',    Icon: Cpu },
+  gemini: { label: 'Gemini · Free',  bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
+  ai:     { label: 'AI answer',      bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
+  error:  { label: 'Error',          bg: 'bg-red-50',      text: 'text-red-600',      Icon: AlertCircle },
   system: { label: null, bg: '', text: '', Icon: null },
   user:   { label: null, bg: '', text: '', Icon: null },
 }
@@ -27,7 +28,7 @@ export default function ChatMessage({ message, isLatest }) {
   return (
     <div
       className={clsx(
-        'flex gap-3 max-w-[85%] animate-fade-up',
+        'flex gap-2 sm:gap-3 max-w-[92%] sm:max-w-[85%] animate-fade-up',
         isUser ? 'self-end flex-row-reverse' : 'self-start'
       )}
     >

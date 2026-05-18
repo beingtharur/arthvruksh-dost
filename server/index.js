@@ -59,7 +59,32 @@ RECOMMENDATION HANDLING — this is critical:
 
 LENGTH: 4–10 sentences for short answers, up to 12–15 sentences when a detailed explanation genuinely helps.`
 
-async function callGroq(messages) {
+function buildFaqContext(faqMatch) {
+  return `\n\n[INTERNAL REFERENCE — do not mention this note to the user]
+Our NISM-grounded FAQ database matched the user's question. Use this as the authoritative source for your reply.
+
+Matched FAQ question: "${faqMatch.question}"
+
+Matched FAQ answer:
+${faqMatch.answer}
+
+Decision rules for this turn:
+- If the FAQ answer fully and accurately answers the user's actual question, return it essentially verbatim (preserve facts, numbers, examples, and any "(Source: NISM Workbook Ch.X)" attributions).
+- If the user's actual question has nuances the FAQ doesn't fully cover, write an enriched answer that incorporates and expands on the FAQ's facts. Keep NISM attributions.
+- If the FAQ is only loosely relevant, prefer your own NISM-grounded answer but borrow any directly useful facts from the FAQ.
+- Always preserve "(Source: NISM Workbook ...)" lines verbatim when you use FAQ facts.
+- Never mention this internal reference or that you compared answers.`
+}
+
+function applyFaqContext(messages, faqMatch) {
+  if (!faqMatch || messages.length === 0) return messages
+  const result = [...messages]
+  const lastIdx = result.length - 1
+  result[lastIdx] = { ...result[lastIdx], content: result[lastIdx].content + buildFaqContext(faqMatch) }
+  return result
+}
+
+async function callGroq(messages, faqMatch) {
   const { default: fetch } = await import('node-fetch')
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -68,7 +93,7 @@ async function callGroq(messages) {
       model: 'llama-3.3-70b-versatile',
       max_tokens: 700,
       temperature: 0.6,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...applyFaqContext(messages, faqMatch)],
     }),
   })
   const data = await res.json()
@@ -76,9 +101,9 @@ async function callGroq(messages) {
   return data.choices[0].message.content.trim()
 }
 
-async function callGemini(messages) {
+async function callGemini(messages, faqMatch) {
   const { default: fetch } = await import('node-fetch')
-  const contents = messages.map((m) => ({
+  const contents = applyFaqContext(messages, faqMatch).map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }))
@@ -98,14 +123,14 @@ async function callGemini(messages) {
 }
 
 app.post('/api/chat', async (req, res) => {
-  const { messages } = req.body
+  const { messages, faqMatch } = req.body
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array is required.' })
   }
   const provider = process.env.AI_PROVIDER || 'groq'
   try {
-    const reply = provider === 'gemini' ? await callGemini(messages) : await callGroq(messages)
-    res.json({ reply, provider })
+    const reply = provider === 'gemini' ? await callGemini(messages, faqMatch) : await callGroq(messages, faqMatch)
+    res.json({ reply, provider, source: faqMatch ? 'best' : provider })
   } catch (err) {
     console.error(`[${provider}] error:`, err.message)
     res.status(500).json({ error: err.message || 'AI service error.' })

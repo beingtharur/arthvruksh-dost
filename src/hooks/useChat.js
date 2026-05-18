@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { matchFAQ } from '../data/faqData.js'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+const API_URL = import.meta.env.VITE_API_URL
 
 export function useChat() {
   const [messages, setMessages] = useState([
@@ -30,18 +30,9 @@ export function useChat() {
       // Add user message
       addMessage({ role: 'user', content: content.trim(), source: 'user' })
 
-      // Check FAQ first
+      // FAQ match (if any) is sent to the backend as an authoritative reference;
+      // the AI decides whether to return it verbatim, enrich it, or write its own answer.
       const faqMatch = matchFAQ(content)
-      if (faqMatch) {
-        await new Promise((r) => setTimeout(r, 400)) // small delay for natural feel
-        addMessage({
-          role: 'assistant',
-          content: faqMatch.answer,
-          source: 'faq',
-          faqId: faqMatch.id,
-        })
-        return
-      }
 
       // Call backend AI
       setIsLoading(true)
@@ -59,7 +50,12 @@ export function useChat() {
         const res = await fetch(`${API_URL}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: history }),
+          body: JSON.stringify({
+            messages: history,
+            faqMatch: faqMatch
+              ? { id: faqMatch.id, question: faqMatch.question, answer: faqMatch.answer }
+              : null,
+          }),
           signal: controller.signal,
         })
 
@@ -69,7 +65,8 @@ export function useChat() {
         addMessage({
           role: 'assistant',
           content: data.reply,
-          source: data.provider || 'ai',
+          source: data.source || data.provider || 'ai',
+          faqId: faqMatch?.id,
         })
       } catch (err) {
         if (err.name === 'AbortError') return
