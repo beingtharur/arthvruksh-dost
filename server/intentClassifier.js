@@ -86,26 +86,42 @@ const OUT_OF_SCOPE_RE = [
   /\b(weather|movie|recipe|cricket\s+score|sports\s+score)\b/i,
 ]
 
-// Explicit selection / ranking / prediction language — the strongest,
-// least ambiguous advice-seeking signals.
+// A question about fund CATEGORIES/TYPES (e.g. "types of debt funds",
+// "categories of equity funds") is unambiguously educational — SEBI's own
+// classification scheme is exactly what src/data/faqData.js's equity-funds/
+// debt-funds/hybrid-funds FAQs cover. Checked FIRST, before any recommendation
+// pattern, so it can never be shadowed by an incidental "best"/"good"/digit
+// elsewhere in the same sentence. Requires "of" right after the type/category
+// word specifically so "top funds in this category" (a real pick request
+// referencing a category conversationally) does NOT get swept in here —
+// only the canonical "types of X" / "categories of X" phrasing does.
+const CATEGORY_QUESTION_RE = /\b(types?|categor(?:y|ies)|kinds?|classes?)\s+of\b.{0,30}\bfunds?\b/i
+
+// EXPLICIT recommendation/selection intent only. Per product direction:
+// ArthVruksh Dost should NOT restrict general ranking/listing questions
+// ("best funds", "top 10 funds", "give me 5 good funds", "list some large
+// cap funds") — those now flow through to Gemini normally, same as any other
+// educational question, guided by the system prompt to stay factual and
+// never push a specific scheme. The compliance branch is reserved for
+// messages that clearly ask the system itself to pick/choose/recommend.
 const FUND_RECOMMENDATION_RE = [
-  /\bbest\s+(mutual\s?fund|elss|small\s?cap|mid\s?cap|large\s?cap|flexi\s?cap|multi\s?cap|index\s?fund|debt\s?fund|hybrid\s?fund|liquid\s?fund|scheme|amc|funds?|schemes?)\b/i,
-  /\btop\s*\d*\s*(funds?|schemes?|amcs?)\b/i,
-  /\bwhich\s+(mutual\s+fund|fund|scheme|amc|sip)\b/i,
-  /\bhighest\s+(return|cagr|growth)\b/i,
-  /\bbest\s+perform(ing|ance)\b/i,
-  /\bwhich\s+one\s+is\s+(safe|better|good)\b/i,
-  /\b(rate|rank)\s+(this|these|the)?\s*fund/i,
-  /\bwill\s+(this|it)\s+(fund|scheme)\s+(outperform|beat|do\s+well)\b/i,
-  /\bis\s+[\w\s]{2,40}\s+fund\s+good\b/i,
-  // Bare "N funds/schemes" phrasing, e.g. "small cap 5 funds", "top 5 funds",
-  // "give me 5 good funds" — no "best"/"which" keyword required.
-  /\b\d+\s*(good\s+)?(funds?|schemes?)\b/i,
-  /\bgood\s+(funds?|schemes?)\b/i,
-  // "list/give/show/name ... funds/schemes" — asking for actual picks.
-  // Tolerates up to 4 words in between ("list me some large cap funds").
-  /\b(list|give|show|name|suggest|recommend)\b(?:\s+\w+){0,4}?\s+(funds?|schemes?|amcs?)\b/i,
+  // "which fund/scheme/amc/sip should/shall/do I buy/choose/pick/invest/go with"
+  /\bwhich\s+(mutual\s+fund|fund|scheme|amc|sip)\b.{0,20}\b(should|shall|do|can)\s+i\s+(buy|choose|pick|invest|go\s+with|select|opt\s+for)\b/i,
+  /\bwhich\s+(one|fund|scheme)\b.{0,20}\b(should|shall)\s+i\s+(choose|pick|buy|go\s+with|select)\b/i,
+  // Explicit "recommend/suggest ... a fund/scheme/amc/stock/etf" — the exact
+  // words the product brief calls out.
+  /\b(recommend|suggest)\s+(me\s+)?(a|an|some)?\s*(good\s+)?(fund|scheme|amc|stock|etf)\b/i,
 ]
+
+// Two or more SPECIFIC, NAMED funds/AMCs + comparison-for-selection language
+// ("X vs Y, which is better") — this is a direct "help me choose between
+// these two real products" ask, functionally a recommendation request even
+// without the literal word "recommend". Kept restricted; distinct from
+// asking about fund CATEGORIES or a single named fund's historical data.
+function mentionsMultipleAmcNames(text) {
+  return AMC_NAMES.filter((name) => text.includes(name)).length >= 2
+}
+const TWO_FUND_SELECTION_RE = /\b(better|best|vs\.?|versus|which\s+is|which\s+one|compare)\b/i
 
 const PORTFOLIO_REVIEW_RE = [
   /\breview\s+my\s+(portfolio|investments?|funds?)\b/i,
@@ -137,11 +153,13 @@ const RISK_PROFILING_RE = [
   /\brisk\s+assessment\s+for\s+me\b/i,
 ]
 
-// Generic advice-seeking language that doesn't fit a more specific bucket
-// above (catch-all per the user's supplied keyword list).
+// Generic EXPLICIT advice-seeking language. Deliberately does NOT include a
+// bare "which is better" anymore — that alone also matches plain concept
+// comparisons the system prompt explicitly allows ("which is better, SIP or
+// lump sum?"). Named-fund "which is better" is still caught by
+// TWO_FUND_SELECTION_RE above; this stays narrow to the literal explicit words.
 const ADVICE_SEEKING_RE = [
   /\b(suggest|recommend|advice|advise)\b/i,
-  /\bwhich\s+is\s+better\b/i,
   /\bwhat\s+should\s+i\s+do\b/i,
   /\bguide\s+me\b/i,
 ]
@@ -194,6 +212,15 @@ export function classifyIntent(rawText) {
     }
   }
 
+  // Category/type questions are unambiguously educational — check this
+  // BEFORE any compliance-trigger pattern so a coincidental "best"/"good"/
+  // digit elsewhere in the same sentence can never shadow it. E.g. "What are
+  // the best types of funds for tax saving?" should still explain that ELSS
+  // is the relevant category, not get blocked because of the word "best".
+  if (CATEGORY_QUESTION_RE.test(text)) {
+    return { intent: INTENTS.DEFINITION, isComplianceTrigger: false, matched: 'category_question' }
+  }
+
   // Highest-risk / most specific intents are checked first so a message
   // matching multiple patterns is routed to the most restrictive bucket.
   for (const re of FUND_RECOMMENDATION_RE) {
@@ -202,8 +229,18 @@ export function classifyIntent(rawText) {
     }
   }
 
-  if (containsAmcName(text) && /\b(buy|invest|switch|better|good|recommend|suggest)\b/i.test(text)) {
-    return { intent: INTENTS.FUND_RECOMMENDATION, isComplianceTrigger: true, matched: 'amc_name+selection_language' }
+  // Two+ named funds/AMCs + comparison-for-selection language — "help me
+  // choose between these two real products" (see TWO_FUND_SELECTION_RE above).
+  if (mentionsMultipleAmcNames(text) && TWO_FUND_SELECTION_RE.test(text)) {
+    return { intent: INTENTS.FUND_RECOMMENDATION, isComplianceTrigger: true, matched: 'two_named_funds+selection_language' }
+  }
+
+  // A SINGLE named fund/AMC + an explicit buy/invest/switch/recommend/suggest
+  // action verb — narrower than before: a lone named fund with just "good"
+  // or "better" (no explicit action verb) no longer blocks by itself, since
+  // that alone isn't an explicit ask for a recommendation.
+  if (containsAmcName(text) && /\b(buy|invest|switch|recommend|suggest)\b/i.test(text)) {
+    return { intent: INTENTS.FUND_RECOMMENDATION, isComplianceTrigger: true, matched: 'amc_name+explicit_action_language' }
   }
 
   for (const re of PORTFOLIO_REVIEW_RE) {

@@ -35,14 +35,16 @@ export const INTENT_TEST_CASES = [
   { input: 'What is the weather today?', expectIntent: INTENTS.OUT_OF_SCOPE, expectTrigger: false },
   { input: 'Should I get health insurance?', expectIntent: INTENTS.OUT_OF_SCOPE, expectTrigger: false },
 
-  // --- Advice-seeking — MUST trigger the deterministic compliance response ---
+  // --- EXPLICIT recommendation/selection intent — MUST still trigger.
+  //     Policy (confirmed by product owner): ArthVruksh Dost should NOT be
+  //     restricted by default. It restricts only when someone explicitly
+  //     asks it to recommend/suggest/choose, or asks about their own
+  //     personal situation (portfolio, risk profile, hold/sell decisions). ---
   { input: 'Which mutual fund should I buy?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'What is the best mutual fund for me?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Best ELSS fund?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Best small cap fund right now?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Top 10 funds to invest in 2026?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Which fund should I go with for tax saving?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Which one should I choose?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Can you recommend a good fund?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
   { input: 'Which is better, HDFC Flexicap or SBI Bluechip?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Which one is safe to invest in?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
   { input: 'Where should I invest my money?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
   { input: 'Should I invest in equity now?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
   { input: 'How much should I invest every month?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
@@ -55,18 +57,24 @@ export const INTENT_TEST_CASES = [
   { input: 'Am I an aggressive investor?', expectIntent: INTENTS.RISK_PROFILING, expectTrigger: true },
   { input: 'What should I do with my money?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
   { input: 'Can you give me some advice?', expectIntent: INTENTS.ADVICE_SEEKING, expectTrigger: true },
-
-  // --- Regression cases from a live production transcript (2026-07-06):
-  //     these two phrasings slipped past the original classifier entirely
-  //     and only avoided giving advice because Gemini itself declined —
-  //     the deterministic layer must catch them independent of model behavior. ---
-  { input: 'What are the best funds of 2026', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Alright Small Cap 5 funds', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Give me 5 good funds', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'List some large cap funds', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Name a few schemes I can consider', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
-  { input: 'Show me top funds in this category', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
   { input: 'Should I continue holding HDFC Flexicap?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
+
+  // --- Ranking/listing WITHOUT explicit recommend/suggest/should-I wording
+  //     — deliberately loosened per product direction. These now flow
+  //     through to Gemini normally, same as any other educational question.
+  //     (Earlier in this project's history these were treated as blocked —
+  //     that was superseded by this explicit instruction.) ---
+  { input: 'What are the best funds of 2026', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+  { input: 'Alright Small Cap 5 funds', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Give me 5 good funds', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'List some large cap funds', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Name a few schemes I can consider', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Show me top funds in this category', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Best ELSS fund?', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Top 10 funds to invest in 2026?', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Which one is safe to invest in?', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'What is the best mutual fund for me?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+  { input: 'list top 10 performing funds of 2025', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
 
   // --- Named-fund HISTORICAL performance — allowed through (not a
   //     compliance trigger), since this is backward-looking factual data,
@@ -81,6 +89,17 @@ export const INTENT_TEST_CASES = [
   { input: 'Is HDFC Flexicap better than SBI Bluechip based on past performance?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
   { input: 'Will Axis Bluechip perform well next year?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
   { input: 'Should I invest in HDFC Flexicap given its past returns?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+
+  // --- Regression cases: previous fix for "best funds"/"5 funds" phrasing
+  //     over-corrected and started blocking plainly educational questions.
+  //     These must all flow through normally, not hit the compliance branch. ---
+  { input: 'What are the types of debt funds?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+  { input: 'What are the 5 categories of equity funds?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+  { input: 'What are the best types of funds for tax saving?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+  { input: 'Give me details on index funds', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'Give me an overview of mutual funds', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
+  { input: 'How do I identify a good fund?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+  { input: 'What makes a mutual fund good for long-term investing?', expectIntent: INTENTS.GENERAL_KNOWLEDGE, expectTrigger: false },
 
   // --- Edge cases: concept question phrased similarly to advice language,
   //     must NOT falsely trigger ---
