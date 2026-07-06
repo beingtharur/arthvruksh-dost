@@ -1,15 +1,18 @@
 import clsx from 'clsx'
-import { TrendingUp, Database, Cpu, AlertCircle } from 'lucide-react'
+import { TrendingUp, Database, Cpu, AlertCircle, ShieldAlert, Ban } from 'lucide-react'
 
 const SOURCE_CONFIG = {
-  faq:    { label: 'FAQ database',   bg: 'bg-emerald-50',  text: 'text-emerald-700',  Icon: Database },
-  best:   { label: 'NISM + AI',      bg: 'bg-violet-50',   text: 'text-violet-700',   Icon: Database },
-  groq:   { label: 'Groq · Free',    bg: 'bg-amber-50',    text: 'text-amber-700',    Icon: Cpu },
-  gemini: { label: 'Gemini · Free',  bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
-  ai:     { label: 'AI answer',      bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
-  error:  { label: 'Error',          bg: 'bg-red-50',      text: 'text-red-600',      Icon: AlertCircle },
-  system: { label: null, bg: '', text: '', Icon: null },
-  user:   { label: null, bg: '', text: '', Icon: null },
+  faq:                 { label: 'FAQ database',      bg: 'bg-emerald-50',  text: 'text-emerald-700',  Icon: Database },
+  best:                { label: 'NISM + AI',          bg: 'bg-violet-50',   text: 'text-violet-700',   Icon: Database },
+  groq:                { label: 'Groq · Free',        bg: 'bg-amber-50',    text: 'text-amber-700',    Icon: Cpu },
+  gemini:              { label: 'Gemini · Free',      bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
+  ai:                  { label: 'AI answer',          bg: 'bg-blue-50',     text: 'text-blue-700',     Icon: Cpu },
+  'compliance-redirect': { label: 'Educational only', bg: 'bg-teal-50',     text: 'text-teal-700',     Icon: ShieldAlert },
+  'compliance-guard':  { label: 'Rephrased for compliance', bg: 'bg-teal-50', text: 'text-teal-700',   Icon: ShieldAlert },
+  'out-of-scope':      { label: 'Out of scope',       bg: 'bg-gray-100',    text: 'text-gray-500',     Icon: Ban },
+  error:               { label: 'Error',              bg: 'bg-red-50',      text: 'text-red-600',      Icon: AlertCircle },
+  system:              { label: null, bg: '', text: '', Icon: null },
+  user:                { label: null, bg: '', text: '', Icon: null },
 }
 
 function formatContent(text) {

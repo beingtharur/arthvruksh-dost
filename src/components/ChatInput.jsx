@@ -62,7 +62,7 @@ export default function ChatInput({ onSend, disabled }) {
         </button>
       </div>
       <p className="text-[10px] text-gray-300 mt-2 text-center">
-        Not financial advice · For education only · Consult a SEBI-registered advisor
+        Educational only · No fund/SIP recommendations · Consult a SEBI/AMFI-registered advisor for personalised guidance
       </p>
     </div>
   )

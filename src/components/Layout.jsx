@@ -64,7 +64,7 @@ export default function Layout({ children }) {
         {/* Footer disclaimer */}
         <div className="px-4 py-4 border-t border-surface-border">
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            For educational purposes only. Not financial advice. Consult a SEBI-registered advisor for personalized guidance.
+            Educational content only — not investment advice. MutualMind does not recommend funds, schemes, or SIP amounts. Consult a SEBI/AMFI-registered advisor for personalized guidance.
           </p>
         </div>
       </aside>

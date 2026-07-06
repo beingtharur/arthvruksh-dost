@@ -9,7 +9,7 @@ export function useChat() {
       id: '0',
       role: 'assistant',
       content:
-        'Namaste! I\'m MutualMind — your AI mutual fund assistant for Indian investors.\n\nI can explain SIP, NAV, CAGR, tax rules, risk types, and more in simple language. I\'m here to educate and guide — not to give personal investment advice.\n\nWhat would you like to learn today?',
+        'Namaste! I\'m MutualMind — an educational financial knowledge assistant for Indian investors.\n\nI can explain SIP, STP, SWP, NAV, CAGR, XIRR, expense ratio, taxation, risk, and other mutual fund concepts in simple language, grounded in NISM/SEBI/AMFI sources.\n\nI\'m built to educate, not to advise — I won\'t recommend specific funds, SIP amounts, or portfolios. For personalised guidance, I\'ll point you to a registered advisor.\n\nWhat would you like to learn today?',
       source: 'system',
       timestamp: new Date(),
     },
@@ -91,7 +91,7 @@ export function useChat() {
       {
         id: '0',
         role: 'assistant',
-        content: 'Chat cleared! Ask me anything about mutual funds.',
+        content: 'Chat cleared! Ask me anything about mutual fund concepts — I\'m here to educate, not to advise.',
         source: 'system',
         timestamp: new Date(),
       },
