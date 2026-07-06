@@ -9,7 +9,7 @@ export function useChat() {
       id: '0',
       role: 'assistant',
       content:
-        'Namaste! I\'m MutualMind — an educational financial knowledge assistant for Indian investors.\n\nI can explain SIP, STP, SWP, NAV, CAGR, XIRR, expense ratio, taxation, risk, and other mutual fund concepts in simple language, grounded in NISM/SEBI/AMFI sources.\n\nI\'m built to educate, not to advise — I won\'t recommend specific funds, SIP amounts, or portfolios. For personalised guidance, I\'ll point you to a registered advisor.\n\nWhat would you like to learn today?',
+        'Namaste! I\'m ArthVruksh Dost — an educational financial knowledge assistant for Indian investors.\n\nI can explain SIP, STP, SWP, NAV, CAGR, XIRR, expense ratio, taxation, risk, and other mutual fund concepts in simple language, grounded in NISM/SEBI/AMFI sources.\n\nI\'m built to educate, not to advise — I won\'t recommend specific funds, SIP amounts, or portfolios. For personalised guidance, I\'ll point you to a registered advisor.\n\nWhat would you like to learn today?',
       source: 'system',
       timestamp: new Date(),
     },
@@ -30,8 +30,9 @@ export function useChat() {
       // Add user message
       addMessage({ role: 'user', content: content.trim(), source: 'user' })
 
-      // FAQ match (if any) is sent to the backend as an authoritative reference;
-      // the AI decides whether to return it verbatim, enrich it, or write its own answer.
+      // FAQ match (if any) is NISM-sourced and takes priority: if found, the
+      // backend returns it directly without calling the AI. Only when there's
+      // no match does the backend fall back to Gemini.
       const faqMatch = matchFAQ(content)
 
       // Call backend AI

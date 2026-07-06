@@ -46,7 +46,7 @@ app.use('/api/', limiter)
 // to produce alongside the fixed disclaimer, and (b) genuinely educational
 // questions that were never advice-seeking in the first place.
 // ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `You are MutualMind, an Educational Financial Knowledge Assistant built for an Indian Mutual Fund Distributor (MFD). You are a TEACHER, not an advisor, not a distributor pitching products, and not a portfolio manager.
+const SYSTEM_PROMPT = `You are ArthVruksh Dost, an Educational Financial Knowledge Assistant built for an Indian Mutual Fund Distributor (MFD). You are a TEACHER, not an advisor, not a distributor pitching products, and not a portfolio manager.
 
 CORE IDENTITY:
 - You educate. You do not advise, recommend, suggest, predict, rank, rate, or choose on the user's behalf.
@@ -88,36 +88,11 @@ STYLE:
 - Plain text only — no markdown bold/headings/bullets in the reply body (the frontend renders plain text with line breaks only).
 - 4–10 sentences for simple questions; up to the full 10-part structure, expressed in flowing prose with line breaks, for substantive ones.`
 
-function buildFaqContext(faqMatch) {
-  return `\n\n[INTERNAL REFERENCE — do not mention this note to the user]
-Our NISM-grounded FAQ database matched the user's question. Use this as the authoritative source for your reply.
-
-Matched FAQ question: "${faqMatch.question}"
-
-Matched FAQ answer:
-${faqMatch.answer}
-
-Decision rules for this turn:
-- If the FAQ answer fully and accurately answers the user's actual question, return it essentially verbatim (preserve facts, numbers, examples, and any "(Source: NISM Workbook Ch.X)" attributions).
-- If the user's actual question has nuances the FAQ doesn't fully cover, write an enriched answer that incorporates and expands on the FAQ's facts, following the 10-part answer structure where it substantively applies. Keep NISM attributions.
-- If the FAQ is only loosely relevant, prefer your own NISM-grounded answer but borrow any directly useful facts from the FAQ.
-- Always preserve "(Source: NISM Workbook ...)" lines verbatim when you use FAQ facts.
-- Never mention this internal reference or that you compared answers.`
-}
-
 function buildComplianceEducationalContext(intent) {
   return `\n\n[INTERNAL REFERENCE — do not mention this note to the user]
 The application has already shown the user a fixed compliance disclaimer for this turn, because their message was classified as advice-seeking (intent: ${intent}). Do NOT repeat, paraphrase, or reference that disclaimer yourself.
 
 Your job for THIS reply is to answer ONLY the underlying educational concept, if one is extractable from the user's message, in a fully neutral, non-personalised way. For example, if they asked "which fund should I buy for retirement", explain what retirement-oriented fund categories generally look like and what factors are typically evaluated — WITHOUT naming any fund, AMC, or telling them what to pick. If no educational concept can be extracted at all, give a short (1-2 sentence) neutral explanation of what kind of educational question you CAN help with instead.`
-}
-
-function applyFaqContext(messages, faqMatch) {
-  if (!faqMatch || messages.length === 0) return messages
-  const result = [...messages]
-  const lastIdx = result.length - 1
-  result[lastIdx] = { ...result[lastIdx], content: result[lastIdx].content + buildFaqContext(faqMatch) }
-  return result
 }
 
 function applyComplianceContext(messages, intent) {
@@ -188,7 +163,10 @@ app.post('/api/chat', async (req, res) => {
 
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
   const { intent, isComplianceTrigger } = classifyIntent(lastUserMessage)
-  const provider = process.env.AI_PROVIDER || 'groq'
+  // Gemini is the default and primary model. AI_PROVIDER can still be set to
+  // 'groq' explicitly (e.g. as a free-tier-quota fallback), but nothing in
+  // this app should silently fall back to Groq anymore.
+  const provider = process.env.AI_PROVIDER || 'gemini'
 
   try {
     // --- Out of scope: deterministic redirect, no LLM call at all ---
@@ -197,24 +175,34 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // --- Compliance-triggering intents: fixed disclaimer (never LLM-authored)
-    //     + best-effort educational sub-answer from the LLM, itself still
-    //     passed through the post-response guard below. ---
+    //     + a best-effort educational sub-answer, sourced NISM-first the same
+    //     way the normal flow is (see below) and only falling back to the
+    //     LLM when no NISM/FAQ match exists. Either way it is still passed
+    //     through the post-response guard before being shown. ---
     if (isComplianceTrigger) {
       const disclaimer = buildComplianceResponse(intent)
       let educationalAddOn = ''
-      try {
-        const withContext = applyComplianceContext(messages, intent)
-        const eduReply = await callProvider(provider, withContext)
-        const guardResult = scanForBannedLanguage(eduReply)
-        educationalAddOn = guardResult.safe ? `\n\n${eduReply}` : ''
-        if (!guardResult.safe) {
-          console.warn(`[compliance-guard] blocked reply for intent=${intent} pattern=${guardResult.matched}`)
+      if (faqMatch) {
+        // NISM-sourced content is pre-vetted, but we still scan it — cheap
+        // insurance against a future FAQ edit accidentally introducing
+        // advice-like phrasing.
+        const guardResult = scanForBannedLanguage(faqMatch.answer)
+        educationalAddOn = guardResult.safe ? `\n\n${faqMatch.answer}` : ''
+      } else {
+        try {
+          const withContext = applyComplianceContext(messages, intent)
+          const eduReply = await callProvider(provider, withContext)
+          const guardResult = scanForBannedLanguage(eduReply)
+          educationalAddOn = guardResult.safe ? `\n\n${eduReply}` : ''
+          if (!guardResult.safe) {
+            console.warn(`[compliance-guard] blocked reply for intent=${intent} pattern=${guardResult.matched}`)
+          }
+        } catch (innerErr) {
+          // If the educational add-on call fails for any reason, the fixed
+          // disclaimer alone is still a fully correct, safe response — we
+          // simply omit the add-on rather than failing the whole request.
+          console.error(`[${provider}] educational add-on error:`, innerErr.message)
         }
-      } catch (innerErr) {
-        // If the educational add-on call fails for any reason, the fixed
-        // disclaimer alone is still a fully correct, safe response — we
-        // simply omit the add-on rather than failing the whole request.
-        console.error(`[${provider}] educational add-on error:`, innerErr.message)
       }
       return res.json({
         reply: `${disclaimer}${educationalAddOn}`,
@@ -224,9 +212,14 @@ app.post('/api/chat', async (req, res) => {
       })
     }
 
-    // --- Normal educational flow ---
-    const withFaq = applyFaqContext(messages, faqMatch)
-    const reply = await callProvider(provider, withFaq)
+    // --- Normal educational flow: NISM (FAQ) first, Gemini only as a
+    //     fallback when NISM doesn't have the answer. No blending — this is
+    //     a strict priority order, not "always call the AI regardless." ---
+    if (faqMatch) {
+      return res.json({ reply: faqMatch.answer, provider, source: 'faq', intent })
+    }
+
+    const reply = await callProvider(provider, messages)
     const guardResult = scanForBannedLanguage(reply)
     if (!guardResult.safe) {
       console.warn(`[compliance-guard] blocked reply for intent=${intent} pattern=${guardResult.matched}`)
@@ -238,7 +231,7 @@ app.post('/api/chat', async (req, res) => {
       })
     }
 
-    res.json({ reply, provider, source: faqMatch ? 'best' : provider, intent })
+    res.json({ reply, provider, source: provider, intent })
   } catch (err) {
     console.error(`[${provider}] error:`, err.message)
     res.status(500).json({ error: err.message || 'AI service error.' })
@@ -246,11 +239,12 @@ app.post('/api/chat', async (req, res) => {
 })
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', provider: process.env.AI_PROVIDER || 'groq', timestamp: new Date().toISOString() })
+  res.json({ status: 'ok', provider: process.env.AI_PROVIDER || 'gemini', timestamp: new Date().toISOString() })
 })
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 MutualMind server on http://localhost:${PORT}`)
-  console.log(`   Provider: ${process.env.AI_PROVIDER || 'groq'}`)
+  console.log(`\n🚀 ArthVruksh Dost server on http://localhost:${PORT}`)
+  console.log(`   Provider: ${process.env.AI_PROVIDER || 'gemini'}`)
+  console.log(`   Flow: NISM (FAQ) first, AI fallback only when no match`)
   console.log(`   Compliance guard: active (intent classifier + banned-phrase scanner)\n`)
 })

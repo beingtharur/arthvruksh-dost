@@ -20,8 +20,8 @@ export default function Layout({ children }) {
               <TrendingUp size={18} className="text-white" strokeWidth={2} />
             </div>
             <div>
-              <h1 className="font-display text-lg leading-tight text-gray-900">MutualMind</h1>
-              <p className="text-xs text-gray-400 font-body">Fund Assistant · India</p>
+              <h1 className="font-display text-lg leading-tight text-gray-900">ArthVruksh Dost</h1>
+              <p className="text-xs text-gray-400 font-body">Educational Fund Assistant · India</p>
             </div>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function Layout({ children }) {
         {/* Footer disclaimer */}
         <div className="px-4 py-4 border-t border-surface-border">
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            Educational content only — not investment advice. MutualMind does not recommend funds, schemes, or SIP amounts. Consult a SEBI/AMFI-registered advisor for personalized guidance.
+            Educational content only — not investment advice. ArthVruksh Dost does not recommend funds, schemes, or SIP amounts. Consult a SEBI/AMFI-registered advisor for personalized guidance.
           </p>
         </div>
       </aside>

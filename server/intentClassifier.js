@@ -1,6 +1,6 @@
 // server/intentClassifier.js
 //
-// Deterministic intent classification for MutualMind.
+// Deterministic intent classification for ArthVruksh Dost.
 //
 // WHY THIS EXISTS:
 // Before this module, the ONLY thing standing between a user and an advice-like

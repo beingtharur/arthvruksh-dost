@@ -1,6 +1,6 @@
 // server/complianceGuard.js
 //
-// Deterministic compliance layer for MutualMind.
+// Deterministic compliance layer for ArthVruksh Dost.
 //
 // Two responsibilities:
 //   1. FIXED, code-owned response text for compliance-triggering intents —
@@ -24,7 +24,7 @@ export const COMPLIANCE_DISCLAIMER =
   ADVISOR_REDIRECT_URL + "."
 
 export const OUT_OF_SCOPE_MESSAGE =
-  "I'm MutualMind — I only cover mutual funds and the share-market basics needed to understand them (SIP, NAV, taxation, risk, fund categories, SEBI/AMFI regulation, and related concepts). That question is outside my scope, so I can't help with it here. Happy to explain anything about mutual funds, though!"
+  "I'm ArthVruksh Dost — I only cover mutual funds and the share-market basics needed to understand them (SIP, NAV, taxation, risk, fund categories, SEBI/AMFI regulation, and related concepts). That question is outside my scope, so I can't help with it here. Happy to explain anything about mutual funds, though!"
 
 // Per-intent follow-up guidance shown alongside COMPLIANCE_DISCLAIMER,
 // suggesting the kind of educational question the user CAN ask instead —
