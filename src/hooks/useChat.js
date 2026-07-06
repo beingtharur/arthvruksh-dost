@@ -67,6 +67,7 @@ export function useChat() {
           role: 'assistant',
           content: data.reply,
           source: data.source || data.provider || 'ai',
+          intent: data.intent,
           faqId: faqMatch?.id,
         })
       } catch (err) {

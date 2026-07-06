@@ -11,6 +11,7 @@
 // code-level guarantees that do not depend on model behavior.
 
 import { INTENTS } from './intentClassifier.js'
+import { COMPLIANCE_DISCLAIMER } from './complianceGuard.js'
 
 export const INTENT_TEST_CASES = [
   // --- Compliant / educational — must NOT trigger compliance redirect ---
@@ -55,6 +56,32 @@ export const INTENT_TEST_CASES = [
   { input: 'What should I do with my money?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
   { input: 'Can you give me some advice?', expectIntent: INTENTS.ADVICE_SEEKING, expectTrigger: true },
 
+  // --- Regression cases from a live production transcript (2026-07-06):
+  //     these two phrasings slipped past the original classifier entirely
+  //     and only avoided giving advice because Gemini itself declined —
+  //     the deterministic layer must catch them independent of model behavior. ---
+  { input: 'What are the best funds of 2026', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Alright Small Cap 5 funds', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Give me 5 good funds', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'List some large cap funds', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Name a few schemes I can consider', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Show me top funds in this category', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Should I continue holding HDFC Flexicap?', expectIntent: INTENTS.INVESTMENT_RECOMMENDATION, expectTrigger: true },
+
+  // --- Named-fund HISTORICAL performance — allowed through (not a
+  //     compliance trigger), since this is backward-looking factual data,
+  //     not a recommendation, ranking, or prediction. ---
+  { input: 'What was HDFC Flexicap\'s return last year?', expectIntent: INTENTS.FUND_HISTORICAL_DATA, expectTrigger: false },
+  { input: 'How did SBI Bluechip perform in 2023?', expectIntent: INTENTS.FUND_HISTORICAL_DATA, expectTrigger: false },
+  { input: 'What has been the CAGR of Parag Parikh Flexi Cap since inception?', expectIntent: INTENTS.FUND_HISTORICAL_DATA, expectTrigger: false },
+  { input: 'NAV history of Axis Bluechip fund', expectIntent: INTENTS.FUND_HISTORICAL_DATA, expectTrigger: false },
+
+  // --- Same named funds, but with ranking/selection/prediction language —
+  //     must STILL be blocked even though they mention "performance" too. ---
+  { input: 'Is HDFC Flexicap better than SBI Bluechip based on past performance?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Will Axis Bluechip perform well next year?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+  { input: 'Should I invest in HDFC Flexicap given its past returns?', expectIntent: INTENTS.FUND_RECOMMENDATION, expectTrigger: true },
+
   // --- Edge cases: concept question phrased similarly to advice language,
   //     must NOT falsely trigger ---
   { input: 'What is asset allocation?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
@@ -62,6 +89,41 @@ export const INTENT_TEST_CASES = [
   { input: 'How is risk measured in mutual funds?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
   { input: 'What does expense ratio mean?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
   { input: 'What are the categories of debt funds?', expectIntent: INTENTS.DEFINITION, expectTrigger: false },
+]
+
+// Tests for the conversation-context escalation rule (shouldEscalateFollowUp
+// in complianceGuard.js) — a short, vague follow-up right after a
+// compliance-redirect turn should also be escalated, even though the
+// classifier alone finds nothing specific in the follow-up message itself.
+export const ESCALATION_TEST_CASES = [
+  {
+    description: 'short vague follow-up right after a compliance-redirect turn — must escalate',
+    currentIntent: 'GeneralKnowledge',
+    lastUserMessage: 'list them',
+    previousMessage: { role: 'assistant', content: `${COMPLIANCE_DISCLAIMER}\n\nSome hint text.` },
+    expectEscalate: true,
+  },
+  {
+    description: 'follow-up after a NORMAL (non-compliance) reply — must NOT escalate',
+    currentIntent: 'GeneralKnowledge',
+    lastUserMessage: 'list them',
+    previousMessage: { role: 'assistant', content: 'NAV is the true worth of one unit of a mutual fund scheme...' },
+    expectEscalate: false,
+  },
+  {
+    description: 'classifier already found something specific — must NOT escalate (no need to)',
+    currentIntent: 'Definition',
+    lastUserMessage: 'What is NAV?',
+    previousMessage: { role: 'assistant', content: COMPLIANCE_DISCLAIMER },
+    expectEscalate: false,
+  },
+  {
+    description: 'long follow-up after compliance-redirect — must NOT escalate (long enough to be a real new question)',
+    currentIntent: 'GeneralKnowledge',
+    lastUserMessage: 'okay separately can you walk me through how expense ratio is calculated and disclosed by AMCs',
+    previousMessage: { role: 'assistant', content: COMPLIANCE_DISCLAIMER },
+    expectEscalate: false,
+  },
 ]
 
 // Text snippets a model might plausibly generate — used to test the

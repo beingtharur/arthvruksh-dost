@@ -8,6 +8,7 @@ import {
   scanForBannedLanguage,
   GUARD_TRIGGERED_FALLBACK,
   OUT_OF_SCOPE_MESSAGE,
+  shouldEscalateFollowUp,
 } from './complianceGuard.js'
 
 const app = express()
@@ -67,6 +68,12 @@ WHAT YOU MAY AND SHOULD DO:
 - Explain concepts in full depth: Mutual Funds, SIP, STP, SWP, Equity, Debt, Hybrid Funds, Index Funds, ETFs, NAV, Expense Ratio, CAGR, XIRR, Inflation, Asset Allocation (as a concept), Diversification, Risk, Volatility, Compounding, Taxation, Capital Gains, Exit Load, and general financial-planning concepts.
 - Compare CONCEPTS, CATEGORIES, TAXATION RULES, RISK CHARACTERISTICS, REGULATIONS, and HISTORICAL DEFINITIONS neutrally (e.g., "difference between SIP and STP," "equity vs debt funds," "direct vs regular plan taxation"). You must never compare two NAMED funds or AMCs, or answer "which one should I pick."
 - When a user's question mixes an advice-seeking request with a genuine concept question, answer ONLY the concept part in depth and let the fixed compliance line (already shown to the user by the application, not by you) stand for the advice-seeking part. Do not repeat or paraphrase the compliance disclaimer yourself — it has already been shown once per turn.
+
+HISTORICAL PERFORMANCE DATA ABOUT A NAMED FUND — a distinct, narrower allowance:
+- Users are allowed to ask about a SPECIFIC named fund's PAST, already-elapsed performance (e.g., "What was HDFC Flexicap's return last year?", "How did SBI Bluechip perform in 2023?"). You may answer these factually.
+- You have NO live data feed. If you are not highly confident of the exact figure, say so explicitly and point the user to check the AMC's factsheet, AMFI, or a platform like Value Research for the precise, current number — do NOT invent a specific return percentage or NAV figure to sound complete. A wrong number stated as fact is worse than admitting you don't have verified real-time data.
+- Every time you state a historical return/performance figure for a named fund, you MUST include, in your own words, a line equivalent to "past performance is not indicative of future returns" — every single time, not just once per conversation.
+- Stating a historical fact is NOT permission to draw a forward-looking or action-oriented conclusion from it. Never follow a historical figure with "so you should...", "which is why I'd recommend...", "this makes it a good choice...", or any close paraphrase — that instantly crosses back into the ABSOLUTE PROHIBITIONS above. If asked to draw such a conclusion, decline that part specifically while still providing the historical fact itself.
 
 ANSWER STRUCTURE for substantive educational questions (skip sections that do not apply to very short factual questions, but use this structure for anything non-trivial):
 1. Definition — plain-language definition first.
@@ -162,7 +169,20 @@ app.post('/api/chat', async (req, res) => {
   }
 
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-  const { intent, isComplianceTrigger } = classifyIntent(lastUserMessage)
+  let { intent, isComplianceTrigger } = classifyIntent(lastUserMessage)
+
+  // --- Conversation-context escalation ---
+  // The classifier above only ever sees the current message in isolation, so
+  // a short, vague follow-up to a just-blocked recommendation request (e.g.
+  // "list them", "which one then", "show me") won't match any pattern on its
+  // own and would otherwise fall through to a normal AI call. See
+  // complianceGuard.shouldEscalateFollowUp for the exact (conservative) rule.
+  const previousMessage = messages.length >= 2 ? messages[messages.length - 2] : null
+  if (shouldEscalateFollowUp(intent, lastUserMessage, previousMessage)) {
+    intent = INTENTS.ADVICE_SEEKING
+    isComplianceTrigger = true
+  }
+
   // Gemini is the default and primary model. AI_PROVIDER can still be set to
   // 'groq' explicitly (e.g. as a free-tier-quota fallback), but nothing in
   // this app should silently fall back to Groq anymore.

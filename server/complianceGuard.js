@@ -52,6 +52,41 @@ export function buildComplianceResponse(intent) {
   return `${COMPLIANCE_DISCLAIMER}\n\n${hint}`
 }
 
+/**
+ * True if a given (assistant) message is a compliance-redirect reply this
+ * app generated — detected by the presence of the fixed disclaimer text,
+ * which is only ever inserted verbatim by buildComplianceResponse(). Used to
+ * detect short, vague follow-ups ("list them", "which one", "show me") that
+ * are trying to re-approach a just-blocked recommendation request from a
+ * different angle — the per-message intent classifier alone has no memory
+ * of the previous turn, so this is how that continuation is caught.
+ */
+export function isComplianceReply(text) {
+  return typeof text === 'string' && text.includes(COMPLIANCE_DISCLAIMER)
+}
+
+/**
+ * Decide whether a message that the intent classifier could NOT resolve to
+ * anything specific (i.e. it fell through to GeneralKnowledge) should
+ * nonetheless be escalated to a compliance trigger, because it looks like a
+ * short, vague continuation of a recommendation request that was already
+ * blocked on the previous turn ("list them", "which one then", "show me").
+ *
+ * Deliberately conservative: only fires when (a) the classifier found
+ * nothing specific on its own, (b) the immediately preceding assistant turn
+ * was itself a compliance-redirect, and (c) the current message is short
+ * (<=8 words) — a legitimate new educational question ("what is NAV?") is
+ * short too, but it would already have matched a specific intent in step
+ * (a) and never reach this check.
+ */
+export function shouldEscalateFollowUp(currentIntent, lastUserMessage, previousMessage) {
+  if (currentIntent !== 'GeneralKnowledge') return false
+  if (!previousMessage || previousMessage.role !== 'assistant') return false
+  if (!isComplianceReply(previousMessage.content)) return false
+  const wordCount = (lastUserMessage || '').trim().split(/\s+/).filter(Boolean).length
+  return wordCount > 0 && wordCount <= 8
+}
+
 // --- Post-response guard (defense in depth) --------------------------------
 //
 // Even with the classifier intercepting known advice-seeking phrasing before
@@ -62,7 +97,7 @@ export function buildComplianceResponse(intent) {
 
 const BANNED_PHRASE_PATTERNS = [
   /\bi\s+(recommend|suggest)\b/i,
-  /\byou\s+should\s+(invest|buy|sell|choose|pick|switch)\b/i,
+  /\byou\s+should\s+(invest|buy|sell|choose|pick|switch|hold|continue|stay\s+invested)\b/i,
   /\bthis\s+(fund|scheme|amc)\s+(is|will)\s+(the\s+best|better|outperform)/i,
   /\b(is|will\s+be)\s+the\s+best\s+(fund|scheme|choice|option)\b/i,
   /\bi'?d\s+(recommend|suggest|advise)\b/i,
@@ -70,6 +105,10 @@ const BANNED_PHRASE_PATTERNS = [
   /\byou\s+should\s+definitely\b/i,
   /\bguaranteed\s+returns?\b/i,
   /\bwill\s+(definitely|certainly)\s+(grow|increase|outperform|beat)\b/i,
+  // Using historical performance as a stated reason to act — the exact
+  // pattern this app is meant to allow the FACTS through for, but never the
+  // "so you should..." conclusion drawn from them.
+  /\b(given|because of|based on)\s+its\s+(past|historical)\s+performance,?\s+you\s+should\b/i,
 ]
 
 /**

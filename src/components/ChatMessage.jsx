@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { TrendingUp, Database, Cpu, AlertCircle, ShieldAlert, Ban } from 'lucide-react'
+import { TrendingUp, Database, Cpu, AlertCircle, ShieldAlert, Ban, History } from 'lucide-react'
 
 const SOURCE_CONFIG = {
   faq:                 { label: 'NISM database',      bg: 'bg-emerald-50',  text: 'text-emerald-700',  Icon: Database },
@@ -25,7 +25,10 @@ function formatContent(text) {
 
 export default function ChatMessage({ message, isLatest }) {
   const isUser = message.role === 'user'
-  const src = SOURCE_CONFIG[message.source] || SOURCE_CONFIG.ai
+  const isHistoricalData = message.intent === 'FundHistoricalData'
+  const src = isHistoricalData
+    ? { label: 'Historical data', bg: 'bg-amber-50', text: 'text-amber-700', Icon: History }
+    : SOURCE_CONFIG[message.source] || SOURCE_CONFIG.ai
 
   return (
     <div
@@ -60,6 +63,14 @@ export default function ChatMessage({ message, isLatest }) {
             {src.Icon && <src.Icon size={10} strokeWidth={2} />}
             {src.label}
           </div>
+        )}
+
+        {/* Fixed, code-owned caption — not reliant on the model remembering
+            to include this every time it states a historical figure. */}
+        {!isUser && isHistoricalData && (
+          <p className="text-[10px] text-amber-700/70 mt-1 px-1 italic">
+            Past performance is not indicative of future returns.
+          </p>
         )}
 
         {/* Timestamp */}

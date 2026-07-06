@@ -34,6 +34,13 @@ export const INTENTS = Object.freeze({
   TAX: 'Tax',
   REGULATION: 'Regulation',
   HISTORICAL: 'Historical',
+  // A named fund/AMC + backward-looking performance language ("what was
+  // HDFC Flexicap's return last year"), with NO ranking, selection, hold/
+  // sell, or prediction language present. Allowed through to the AI
+  // normally (not a compliance trigger) — but the system prompt requires a
+  // "past performance is not indicative of future returns" caveat and
+  // forbids treating the historical figure as a reason to act.
+  FUND_HISTORICAL_DATA: 'FundHistoricalData',
   GENERAL_KNOWLEDGE: 'GeneralKnowledge',
   EDUCATIONAL: 'Educational', // fallback bucket for in-scope content that doesn't fit a more specific bucket
 })
@@ -82,7 +89,7 @@ const OUT_OF_SCOPE_RE = [
 // Explicit selection / ranking / prediction language — the strongest,
 // least ambiguous advice-seeking signals.
 const FUND_RECOMMENDATION_RE = [
-  /\bbest\s+(mutual\s?fund|elss|small\s?cap|mid\s?cap|large\s?cap|flexi\s?cap|multi\s?cap|index\s?fund|debt\s?fund|hybrid\s?fund|liquid\s?fund|scheme|amc)\b/i,
+  /\bbest\s+(mutual\s?fund|elss|small\s?cap|mid\s?cap|large\s?cap|flexi\s?cap|multi\s?cap|index\s?fund|debt\s?fund|hybrid\s?fund|liquid\s?fund|scheme|amc|funds?|schemes?)\b/i,
   /\btop\s*\d*\s*(funds?|schemes?|amcs?)\b/i,
   /\bwhich\s+(mutual\s+fund|fund|scheme|amc|sip)\b/i,
   /\bhighest\s+(return|cagr|growth)\b/i,
@@ -91,6 +98,13 @@ const FUND_RECOMMENDATION_RE = [
   /\b(rate|rank)\s+(this|these|the)?\s*fund/i,
   /\bwill\s+(this|it)\s+(fund|scheme)\s+(outperform|beat|do\s+well)\b/i,
   /\bis\s+[\w\s]{2,40}\s+fund\s+good\b/i,
+  // Bare "N funds/schemes" phrasing, e.g. "small cap 5 funds", "top 5 funds",
+  // "give me 5 good funds" — no "best"/"which" keyword required.
+  /\b\d+\s*(good\s+)?(funds?|schemes?)\b/i,
+  /\bgood\s+(funds?|schemes?)\b/i,
+  // "list/give/show/name ... funds/schemes" — asking for actual picks.
+  // Tolerates up to 4 words in between ("list me some large cap funds").
+  /\b(list|give|show|name|suggest|recommend)\b(?:\s+\w+){0,4}?\s+(funds?|schemes?|amcs?)\b/i,
 ]
 
 const PORTFOLIO_REVIEW_RE = [
@@ -103,7 +117,7 @@ const PORTFOLIO_REVIEW_RE = [
 
 const INVESTMENT_RECOMMENDATION_RE = [
   /\bwhere\s+should\s+i\s+invest\b/i,
-  /\bshould\s+i\s+(invest|buy|sell|switch|redeem|exit)\b/i,
+  /\bshould\s+i\s+(invest|buy|sell|switch|redeem|exit|hold|continue)\b/i,
   /\bhow\s+much\s+should\s+i\s+invest\b/i,
   /\bwhich\s+sip\s+amount\b/i,
   /\bwhat\s+should\s+i\s+do\s+(with|about)\s+my\b/i,
@@ -131,6 +145,23 @@ const ADVICE_SEEKING_RE = [
   /\bwhat\s+should\s+i\s+do\b/i,
   /\bguide\s+me\b/i,
 ]
+
+// Forward-looking / predictive language — checked WITH a named AMC before
+// the historical-performance allowance below, so "will Axis Bluechip
+// perform well next year" is blocked as a prediction, not waved through as
+// history just because it also contains the word "perform".
+const PREDICTION_RE = [
+  /\bwill\b.{0,40}\b(perform|outperform|beat|grow|do\s+well|give\s+(good|high)\s+returns?)\b/i,
+  /\b(next\s+year|in\s+future|going\s+forward|going\s+ahead)\b.{0,40}\b(perform|outperform|beat|grow|returns?)\b/i,
+  /\b(perform|outperform|beat|grow|returns?)\b.{0,40}\b(next\s+year|in\s+future|going\s+forward)\b/i,
+]
+
+// Backward-looking performance language about a named fund — "what was the
+// return", "how did it perform", "NAV history", "since inception", a bare
+// year like "in 2023". Deliberately does NOT include forward-looking words
+// (will, next year, future, expect) — those stay in FUND_RECOMMENDATION /
+// INVESTMENT_RECOMMENDATION territory via the checks that run before this one.
+const HISTORICAL_PERFORMANCE_RE = /\b(returns?|perform\w*|nav|cagr|xirr|track\s+record|history|historical|since\s+inception|last\s+\d+\s+years?|past\s+\d+\s+years?|in\s+20\d{2})\b/i
 
 const COMPARISON_RE = /\b(difference between|compare|comparing|comparison|vs\.?|versus)\b/i
 const CALCULATION_RE = /\b(calculate|calculation|calculated|formula)\b/i
@@ -197,6 +228,20 @@ export function classifyIntent(rawText) {
     if (re.test(text)) {
       return { intent: INTENTS.ADVICE_SEEKING, isComplianceTrigger: true, matched: re.source }
     }
+  }
+
+  if (containsAmcName(text) && PREDICTION_RE.some((re) => re.test(text))) {
+    return { intent: INTENTS.FUND_RECOMMENDATION, isComplianceTrigger: true, matched: 'amc_name+prediction_language' }
+  }
+
+  // A named fund/AMC + backward-looking performance language, with NONE of
+  // the recommendation/ranking/selection/hold-sell/prediction signals above
+  // present (all of those were already checked and would have returned
+  // first). This is the one deliberate "compliance trigger = false" path
+  // that still names a specific fund — allowed through so users can look up
+  // factual historical performance, not just abstract concepts.
+  if (containsAmcName(text) && HISTORICAL_PERFORMANCE_RE.test(text)) {
+    return { intent: INTENTS.FUND_HISTORICAL_DATA, isComplianceTrigger: false, matched: 'amc_name+historical_performance' }
   }
 
   // From here on, nothing compliance-triggering was found — classify the

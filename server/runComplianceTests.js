@@ -5,8 +5,8 @@
 // Exits non-zero if any case fails, so it can gate a release in CI.
 
 import { classifyIntent } from './intentClassifier.js'
-import { scanForBannedLanguage } from './complianceGuard.js'
-import { INTENT_TEST_CASES, BANNED_PHRASE_TEST_CASES } from './complianceTestCases.js'
+import { scanForBannedLanguage, shouldEscalateFollowUp } from './complianceGuard.js'
+import { INTENT_TEST_CASES, BANNED_PHRASE_TEST_CASES, ESCALATION_TEST_CASES } from './complianceTestCases.js'
 
 let pass = 0
 let fail = 0
@@ -35,6 +35,19 @@ for (const tc of BANNED_PHRASE_TEST_CASES) {
     fail++
     console.log(`FAIL  "${tc.text}"`)
     console.log(`      expected safe=${tc.expectSafe}, got safe=${result.safe} (matched: ${result.matched})`)
+  }
+}
+
+console.log('\n=== Conversation-context escalation tests ===')
+for (const tc of ESCALATION_TEST_CASES) {
+  const result = shouldEscalateFollowUp(tc.currentIntent, tc.lastUserMessage, tc.previousMessage)
+  const ok = result === tc.expectEscalate
+  if (ok) {
+    pass++
+  } else {
+    fail++
+    console.log(`FAIL  ${tc.description}`)
+    console.log(`      expected escalate=${tc.expectEscalate}, got escalate=${result}`)
   }
 }
 
