@@ -105,11 +105,12 @@ function ConceptCard({ item, accent }) {
     <div className="bg-white border border-surface-border rounded-xl overflow-hidden hover:shadow-sm transition-shadow">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full text-left px-5 py-4 flex items-start justify-between gap-4"
+        className="w-full text-left px-4 py-3.5 sm:px-5 sm:py-4 flex items-start justify-between gap-3 sm:gap-4 tap-clean active:bg-gray-50 transition-colors"
+        aria-expanded={open}
       >
-        <div>
-          <h3 className="text-sm font-semibold text-gray-800 font-body">{item.term}</h3>
-          <p className="text-xs text-gray-500 mt-0.5">{item.simple}</p>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-gray-800 font-body leading-snug">{item.term}</h3>
+          <p className="text-xs text-gray-500 mt-0.5 leading-snug">{item.simple}</p>
         </div>
         {open ? (
           <ChevronUp size={16} className="text-gray-400 shrink-0 mt-0.5" />
@@ -119,14 +120,14 @@ function ConceptCard({ item, accent }) {
       </button>
 
       {open && (
-        <div className="px-5 pb-5 animate-fade-in">
-          <p className="text-sm text-gray-600 leading-relaxed font-body">{item.detail}</p>
-          <div className="mt-3 p-3 bg-surface rounded-lg border border-surface-border">
-            <p className="text-xs text-gray-500 font-mono">{item.example}</p>
+        <div className="px-4 pb-4 sm:px-5 sm:pb-5 animate-fade-in">
+          <p className="text-[13.5px] sm:text-sm text-gray-600 leading-relaxed font-body">{item.detail}</p>
+          <div className="mt-3 p-3 bg-surface rounded-lg border border-surface-border overflow-x-auto no-scrollbar">
+            <p className="text-[11px] sm:text-xs text-gray-500 font-mono leading-relaxed">{item.example}</p>
           </div>
           <button
             onClick={() => navigate('/', { state: { ask: `Explain ${item.term.split('—')[0].trim()} in detail` } })}
-            className="mt-3 flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 font-medium"
+            className="mt-3 flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 font-medium py-1.5 tap-clean"
           >
             <MessageCircle size={12} />
             Ask the AI more about this
@@ -139,15 +140,18 @@ function ConceptCard({ item, accent }) {
 
 export default function LearnPage() {
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <header className="px-6 py-4 border-b border-surface-border bg-white shrink-0">
-        <h2 className="font-display text-xl text-gray-900">Learn Mutual Funds</h2>
-        <p className="text-xs text-gray-400 mt-0.5">
-          Beginner-friendly explanations · India-focused · Click any card to expand
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <header className="px-4 py-3 sm:px-6 sm:py-4 border-b border-surface-border bg-white shrink-0">
+        <h2 className="font-display text-lg sm:text-xl text-gray-900">Learn Mutual Funds</h2>
+        <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">
+          <span className="sm:hidden">Beginner-friendly · Tap any card to expand</span>
+          <span className="hidden sm:inline">
+            Beginner-friendly explanations · India-focused · Click any card to expand
+          </span>
         </p>
       </header>
 
-      <div className="flex-1 overflow-y-auto chat-scrollbar px-6 py-5 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain chat-scrollbar px-3 py-4 sm:px-6 sm:py-5 space-y-5 sm:space-y-6 pb-safe">
         {CONCEPTS.map((section) => (
           <div key={section.category}>
             <div className={clsx('inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium mb-3', section.color, section.accent)}>

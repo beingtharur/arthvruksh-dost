@@ -14,14 +14,28 @@ const SUGGESTIONS = [
 export default function SuggestionChips({ onSelect, visible }) {
   if (!visible) return null
   return (
-    <div className="px-4 py-3 border-t border-surface-border bg-surface">
-      <p className="text-[11px] text-gray-400 mb-2 font-medium uppercase tracking-wide">Quick questions · sourced from NISM workbook</p>
-      <div className="flex flex-wrap gap-2">
+    <div className="shrink-0 border-t border-surface-border bg-surface py-2.5 sm:py-3">
+      <p className="text-[10px] sm:text-[11px] text-gray-400 mb-2 px-3 sm:px-4 font-medium uppercase tracking-wide">
+        <span className="sm:hidden">Quick questions</span>
+        <span className="hidden sm:inline">Quick questions · sourced from NISM workbook</span>
+      </p>
+
+      {/* Phones: a single swipeable rail so the chips never eat the message
+          area. Tablet and up: the original wrapping cloud.
+          No scroll-snap here — with horizontal padding it forces an offset on
+          load that reads as a gap before the first chip. */}
+      <div
+        className={[
+          'flex gap-2 px-3 sm:px-4',
+          'overflow-x-auto no-scrollbar',
+          'sm:overflow-visible sm:flex-wrap',
+        ].join(' ')}
+      >
         {SUGGESTIONS.map((s) => (
           <button
             key={s}
             onClick={() => onSelect(s)}
-            className="text-xs px-3 py-1.5 rounded-full border border-surface-border bg-white text-gray-600 hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50 transition-all duration-150 font-body"
+            className="shrink-0 sm:shrink text-xs px-3 py-2 sm:py-1.5 rounded-full border border-surface-border bg-white text-gray-600 whitespace-nowrap sm:whitespace-normal hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50 active:bg-brand-100 transition-all duration-150 font-body tap-clean"
           >
             {s}
           </button>

@@ -33,22 +33,23 @@ export default function ChatMessage({ message, isLatest }) {
   return (
     <div
       className={clsx(
-        'flex gap-2 sm:gap-3 max-w-[92%] sm:max-w-[85%] animate-fade-up',
+        'flex gap-2 sm:gap-3 max-w-[92%] sm:max-w-[85%] min-w-0 animate-fade-up',
         isUser ? 'self-end flex-row-reverse' : 'self-start'
       )}
     >
       {/* Avatar */}
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-brand-500 flex items-center justify-center shrink-0 mt-0.5">
           <TrendingUp size={14} className="text-white" strokeWidth={2} />
         </div>
       )}
 
-      <div className={clsx('flex flex-col', isUser ? 'items-end' : 'items-start')}>
+      <div className={clsx('flex flex-col min-w-0', isUser ? 'items-end' : 'items-start')}>
         {/* Bubble */}
         <div
           className={clsx(
-            'px-4 py-3 rounded-2xl text-sm leading-relaxed font-body',
+            'px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-[13.5px] sm:text-sm leading-relaxed font-body',
+            'max-w-full break-words [overflow-wrap:anywhere]',
             isUser
               ? 'bg-brand-500 text-white rounded-br-sm'
               : 'bg-white border border-surface-border text-gray-800 rounded-bl-sm shadow-sm'

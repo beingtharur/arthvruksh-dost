@@ -1,7 +1,13 @@
 import { useState, useCallback, useRef } from 'react'
 import { matchFAQ } from '../data/faqData.js'
 
-const API_URL = import.meta.env.VITE_API_URL
+// In production this is the deployed backend (see .env.production).
+// In development it must fall back to an empty string so requests go to the
+// same-origin path `/api/chat`, which vite.config.js proxies to localhost:4000.
+// Without the fallback the URL becomes the literal string "undefined/api/chat",
+// which Vite answers with an empty 404 body — and that empty body is what makes
+// res.json() throw "Unexpected end of JSON input".
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 export function useChat() {
   const [messages, setMessages] = useState([
@@ -60,8 +66,22 @@ export function useChat() {
           signal: controller.signal,
         })
 
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Server error')
+        // Read as text first: an unreachable/misrouted backend replies with an
+        // empty body or an HTML error page, and calling res.json() on either
+        // throws a parser error that tells the user nothing useful.
+        const raw = await res.text()
+        let data
+        try {
+          data = raw ? JSON.parse(raw) : {}
+        } catch {
+          throw new Error(
+            `The server replied with a non-JSON response (HTTP ${res.status}). ` +
+            'Check that the backend is running on port 4000.'
+          )
+        }
+
+        if (!res.ok) throw new Error(data.error || `Server error (HTTP ${res.status})`)
+        if (!data.reply) throw new Error('The server returned an empty reply.')
 
         addMessage({
           role: 'assistant',
