@@ -100,7 +100,7 @@ export default function FaqPage() {
           />
         </div>
 
-        {/* Swipeable filter rail on phones, wrapping cloud from sm up */}
+       
         <div className="mt-3 -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto no-scrollbar sm:overflow-visible sm:flex-wrap">
           {CATEGORIES.map((cat) => (
             <button
